@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h2 {
+      color: #00ffc8;
+    }
+
+    #reader {
+      width: 300px;
+      margin: 20px auto;
+    }
+
+    .result {
+      margin-top: 20px;
+      font-size: 18px;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .success {
+      background-color: #003300;
+      color: #00ff00;
+    }
+
+    .denied {
+      background-color: #330000;
+      color: #ff4d4d;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📷 Scan Your ID</h2>
+  <div id="reader"></div>
+  <div id="result" class="result"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+  <!-- QR Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyB15yWei-XdBuZZkX-peJqZjqxm_k9g_34",
+      authDomain: "security-system-8d8bb.firebaseapp.com",
+      databaseURL: "https://security-system-8d8bb-default-rtdb.firebaseio.com/",
+      projectId: "security-system-8d8bb",
+      storageBucket: "security-system-8d8bb.appspot.com",
+      messagingSenderId: "989119777326",
+      appId: "1:989119777326:web:ee02a4e2d55ffa3f666db"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const resultBox = document.getElementById("result");
+    const html5QrCode = new Html5Qrcode("reader");
+
+    // Check camera devices
+    Html5Qrcode.getCameras().then(devices => {
+      if (devices && devices.length) {
+        const cameraId = devices[0].id;
+
+        html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: 250 },
+          (decodedText, decodedResult) => {
+            html5QrCode.stop(); // stop scanning
+            handleScannedId(decodedText);
+          },
+          errorMsg => {
+            console.warn("Scanning error:", errorMsg); // optional
+          }
+        ).catch(err => {
+          resultBox.innerHTML = `<div class="denied">❌ Camera Start Error: ${err}</div>`;
+        });
+      } else {
+        resultBox.innerHTML = `<div class="denied">⚠️ No camera device found</div>`;
+      }
+    }).catch(err => {
+      resultBox.innerHTML = `<div class="denied">❌ getCameras() failed: ${err}</div>`;
+    });
+
+    // Function to handle scanned QR ID
+    function handleScannedId(scannedId) {
+      resultBox.innerHTML = "🔍 Checking ID: " + scannedId;
+      db.ref("users/" + scannedId).once("value").then(snapshot => {
+        const user = snapshot.val();
+        if (user && user.active) {
+          resultBox.innerHTML = `
+            <div class="success">
+              ✅ Access Granted<br>
+              Name: <b>${user.name}</b><br>
+              Phone: <b>${user.phone || "N/A"}</b>
+            </div>
+          `;
+        } else {
+          resultBox.innerHTML = `<div class="denied">⛔ Access Denied for ID: ${scannedId}</div>`;
+        }
+      }).catch(() => {
+        resultBox.innerHTML = `<div class="denied">❌ Error contacting Firebase</div>`;
+      });
+    }
+  </script>
+
+</body>
+</html>
